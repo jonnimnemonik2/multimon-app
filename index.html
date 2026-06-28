@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>MultiMon — Мониторинг авто</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f0f;
+            color: #fff;
+            min-height: 100vh;
+            padding: 16px;
+            padding-top: env(safe-area-inset-top, 16px);
+            padding-bottom: env(safe-area-inset-bottom, 16px);
+        }
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #333;
+        }
+        .header h1 { font-size: 22px; font-weight: 700; }
+        .header .status { font-size: 12px; color: #888; }
+        .platforms {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;
+        }
+        .platform-card {
+            background: #1a1a1a; border-radius: 12px; padding: 16px;
+            text-align: center; cursor: pointer; transition: transform 0.2s;
+            border: 2px solid transparent;
+        }
+        .platform-card:active { transform: scale(0.95); }
+        .platform-card.active { border-color: #4a9eff; }
+        .platform-card .icon { font-size: 32px; margin-bottom: 8px; }
+        .platform-card .name { font-size: 13px; font-weight: 600; }
+        .platform-card .count { font-size: 11px; color: #888; margin-top: 4px; }
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #1a1a1a; border-radius: 12px; padding: 14px;
+        }
+        .stat-card .label { font-size: 11px; color: #888; margin-bottom: 4px; }
+        .stat-card .value { font-size: 22px; font-weight: 700; }
+        .stat-card .value.green { color: #4caf50; }
+        .stat-card .value.orange { color: #ff9800; }
+        .stat-card .value.blue { color: #4a9eff; }
+        .items-list { display: flex; flex-direction: column; gap: 10px; }
+        .item-card {
+            background: #1a1a1a; border-radius: 12px; padding: 14px;
+            border-left: 4px solid #4a9eff;
+        }
+        .item-card.reseller { border-left-color: #f44336; opacity: 0.6; }
+        .item-card.top { border-left-color: #4caf50; }
+        .item-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+        .item-price { font-size: 18px; font-weight: 700; color: #4caf50; margin-bottom: 8px; }
+        .item-specs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .spec-badge {
+            background: #2a2a2a; padding: 3px 8px; border-radius: 4px;
+            font-size: 11px; color: #ccc;
+        }
+        .spec-badge.hp-ok { background: #1b5e20; color: #a5d6a7; }
+        .spec-badge.hp-bad { background: #b71c1c; color: #ef9a9a; }
+        .rating-bar {
+            height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-top: 8px;
+        }
+        .rating-fill { height: 100%; background: linear-gradient(90deg, #f44336, #ff9800, #4caf50); transition: width 0.3s; }
+        .rating-label { font-size: 11px; color: #888; margin-top: 4px; display: flex; justify-content: space-between; }
+        .fab {
+            position: fixed; bottom: 20px; right: 20px;
+            width: 56px; height: 56px; border-radius: 50%;
+            background: #4a9eff; color: #fff; border: none;
+            font-size: 24px; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.4);
+        }
+        .fab:active { transform: scale(0.9); }
+        .empty { text-align: center; padding: 40px 20px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>🚗 MultiMon</h1>
+            <div class="status" id="status">Загрузка...</div>
+        </div>
+        <div style="font-size: 24px;">⚙️</div>
+    </div>
+
+    <div class="platforms">
+        <div class="platform-card active" data-platform="avito">
+            <div class="icon">🟦</div>
+            <div class="name">Авито</div>
+            <div class="count" id="count-avito">0 авто</div>
+        </div>
+        <div class="platform-card" data-platform="drom">
+            <div class="icon">🔵</div>
+            <div class="name">Drom.ru</div>
+            <div class="count" id="count-drom">0 авто</div>
+        </div>
+        <div class="platform-card" data-platform="autoru">
+            <div class="icon">🟡</div>
+            <div class="name">Auto.ru</div>
+            <div class="count" id="count-autoru">0 авто</div>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="label">Новых сегодня</div>
+            <div class="value green" id="stat-new">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Изменение цены</div>
+            <div class="value orange" id="stat-changes">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Всего отслеживается</div>
+            <div class="value blue" id="stat-total">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Топ-предложений</div>
+            <div class="value green" id="stat-top">0</div>
+        </div>
+    </div>
+
+    <h2 style="font-size: 16px; margin-bottom: 12px;">🏆 Лучшие предложения</h2>
+    <div class="items-list" id="items-list">
+        <div class="empty">Откройте Авито/Drom/Auto.ru для начала мониторинга</div>
+    </div>
+
+    <button class="fab" onclick="refresh()">🔄</button>
+
+    <script>
+        // PWA Service Worker регистрация
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
+        }
+
+        let currentPlatform = 'avito';
+        const items = new Map();
+
+        // Читаем данные из localStorage (синхронизация со userscript)
+        function loadData() {
+            try {
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('avmon_history_')) {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        Object.keys(data).forEach(id => {
+                            // Здесь должна быть логика объединения с данными userscript
+                        });
+                    }
+                }
+            } catch(e) {}
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('status').textContent = `Активно: ${new Date().toLocaleTimeString('ru')}`;
+            // Обновление счётчиков и списка — зависит от реальных данных
+        }
+
+        function refresh() {
+            document.getElementById('status').textContent = 'Обновление...';
+            setTimeout(() => {
+                loadData();
+                document.getElementById('status').textContent = 'Обновлено ✓';
+            }, 500);
+        }
+
+        // Переключение платформ
+        document.querySelectorAll('.platform-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.platform-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                currentPlatform = card.dataset.platform;
+                const urls = {
+                    avito: 'https://www.avito.ru/moskva/avtomobili',
+                    drom: 'https://moskva.drom.ru/auto/all/',
+                    autoru: 'https://auto.ru/moskva/cars/all/'
+                };
+                window.location.href = urls[currentPlatform];
+            });
+        });
+
+        loadData();
+    </script>
+</body>
+</html>
